@@ -24,11 +24,18 @@ def get_course_url(url):
 def get_course_inf(url):
     resp = requests.get(url, headers=cre_headers())
     obj = re.compile(r'<div class="mainCourse">.*?value="(?P<id>.*?)"/>.*?<div class="mgCard_con fr">.*?title=".*?">(?P<name>.*?)<.*?'
-                     r'主讲教师：(?P<teacher>.*?) /(?P<school>.*?)</dd>', re.S)
+                     r'主讲教师：(?P<teacherwithschool>.*?)</dd>', re.S)
     result = obj.search(resp.text)
     dic = result.groupdict()
-    dic['teacher'] = dic['teacher'].strip()
-    dic['school'] = dic['school'].strip()
+    if not dic['teacherwithschool'].isspace():
+        dic['teacher'] = dic['teacherwithschool'].split(" /",2)[0]
+        dic['school'] = dic['teacherwithschool'].split(" /", 2)[1]
+        dic['teacher'] = dic['teacher'].strip()
+        dic['school'] = dic['school'].strip()
+    else:
+        dic['teacher'] = ''
+        dic['school'] = ''
+    del dic['teacherwithschool']
     #课程名称、课程id、主讲教师、学校
     obj = re.compile(r'function getEvaluate.*?enc: "(?P<enc>.*?)",.*?starttime: "(?P<starttime>.*?) 00.*?endtime: "(?P<endtime>.*?) 23', re.S)
     result = obj.search(resp.text)
@@ -53,16 +60,22 @@ def get_course_dir(course):
     resp = requests.get('https://xueyinonline.com/detail/knowledge-catalog?courseId='+dic['id']+'&orgCourseId='+dic['id'], headers=cre_headers())
     et = etree.HTML(resp.text)
     course_dir = et.xpath('//a/text()')
+    course_dir_unreadable = et.xpath('//span[@class = "unreadable"]/text()')
     li = []
     for item in course_dir:
         item = item.strip()
         item = ''.join(item.split())
         li.append(item)
+    if course_dir_unreadable != None:
+        for item in course_dir_unreadable:
+            item = item.strip()
+            item = ''.join(item.split())
+            li.append(item)
     dic['dir'] = li
     return dic
 
 def main():
-    for i in range(1,51):
+    for i in range(1,21):
         url = "https://xueyinonline.com/mooc/categorycourselist?categoryid=0&coursetype=0&page="
         url = url + f"{i}"
         url_result = get_course_url(url)
