@@ -3,6 +3,7 @@ from lxml import etree
 import re
 import json
 from fake_useragent import UserAgent
+from concurrent.futures import ThreadPoolExecutor
 
 def cre_headers():
     ua = UserAgent()
@@ -21,7 +22,7 @@ def get_course_url(url):
         url_result.append(domain + item)
     return url_result
 
-def get_course_inf(url):
+def get_course_inf(url, f):
     resp = requests.get(url, headers=cre_headers())
     obj = re.compile(r'<div class="mainCourse">.*?value="(?P<id>.*?)"/>.*?<div class="mgCard_con fr">.*?title=".*?">(?P<name>.*?)<.*?'
                      r'主讲教师：(?P<teacherwithschool>.*?)</dd>', re.S)
@@ -52,11 +53,16 @@ def get_course_inf(url):
     dic.update(json.loads(resp.text))
     dic['url'] = url
     #累计页面浏览量、累计选课人数、累计互动次数
+    json_inf = json.dumps(dic, ensure_ascii=False)
+    f.write(json_inf + '\n')
     return dic
 
-def get_course_dir(course):
+def get_course_dir(url, f):
     #{'id':'***', 'dir':'1.1 ***'}
-    dic = {'id': course['id']}
+    resp = requests.get(url, headers=cre_headers())
+    obj = re.compile(r'<div class="mainCourse">.*?value="(?P<id>.*?)"/>', re.S)
+    result = obj.search(resp.text)
+    dic = result.groupdict()
     resp = requests.get('https://xueyinonline.com/detail/knowledge-catalog?courseId='+dic['id']+'&orgCourseId='+dic['id'], headers=cre_headers())
     et = etree.HTML(resp.text)
     course_dir = et.xpath('//a/text()')
@@ -72,24 +78,21 @@ def get_course_dir(course):
             item = ''.join(item.split())
             li.append(item)
     dic['dir'] = li
-    return dic
+    json_dir = json.dumps(dic, ensure_ascii=False)
+    f.write(json_dir + '\n')
 
 def main():
-    for i in range(1,21):
-        url = "https://xueyinonline.com/mooc/categorycourselist?categoryid=0&coursetype=0&page="
-        url = url + f"{i}"
-        url_result = get_course_url(url)
-        # 课程名称、课程id、主讲教师、学校、累计页面浏览量、累计选课人数、累计互动次数、课程评分、评论数
-        f_inf = open(f'F:/WorkSpace/xueyin_course_inf/page{i}.txt', 'w', encoding='utf-8')
-        f_dir = open(f'F:/WorkSpace/xueyin_course_dir/page{i}.txt', 'w', encoding='utf-8')
-        for course_url in url_result:
-            course = get_course_inf(course_url)
-            json_inf = json.dumps(course, ensure_ascii=False)
-            f_inf.write(json_inf + '\n')
-            course_dir = get_course_dir(course)
-            json_dir = json.dumps(course_dir, ensure_ascii=False)
-            f_dir.write(json_dir + '\n')
-        print(f"第{i}页完成.")
+    with ThreadPoolExecutor(10) as task:
+        for i in range(1, 1184):
+            url = "https://xueyinonline.com/mooc/categorycourselist?categoryid=0&coursetype=0&page="
+            url = url + f"{i}"
+            url_result = get_course_url(url)
+            # 课程名称、课程id、主讲教师、学校、累计页面浏览量、累计选课人数、累计互动次数、课程评分、评论数
+            f_inf = open(f'F:/WorkSpace/xueyin_course_inf/page{i}.txt', 'w', encoding='utf-8')
+            f_dir = open(f'F:/WorkSpace/xueyin_course_dir/page{i}.txt', 'w', encoding='utf-8')
+            for course_url in url_result:
+                task.submit(lambda cxp:get_course_inf(*cxp), (course_url, f_inf))
+                task.submit(lambda cxp:get_course_dir(*cxp), (course_url, f_dir))
     print('all finish!!')
 
 if __name__ == '__main__':
