@@ -1,10 +1,26 @@
+import time
+
 import requests
 from lxml import etree
 import re
 import json
 from fake_useragent import UserAgent
 from concurrent.futures import ThreadPoolExecutor
+import random
 
+def get_ip_pool():
+    global proxies_pool
+    with open("F:/WorkSpace/ip.json", "r") as load_f:
+        load_dic = json.load(load_f)
+        data = load_dic['data']
+        proxies_pool = data['proxy_list']
+def cre_proxies():
+    proxy = random.choice(proxies_pool)
+    proxies = {
+        "http": "http://%(user)s:%(pwd)s@%(proxy)s/" % {"user": 'd3940189470', "pwd": 'xu04zwnc', "proxy": proxy},
+        "https": "http://%(user)s:%(pwd)s@%(proxy)s/" % {"user": 'd3940189470', "pwd": 'xu04zwnc', "proxy": proxy}
+    }
+    return proxies
 def cre_headers():
     ua = UserAgent()
     headers = {
@@ -14,7 +30,7 @@ def cre_headers():
 
 def get_course_url(url):
     domain = 'https://xueyinonline.com'
-    resp = requests.get(url, headers=cre_headers())
+    resp = requests.get(url, headers=cre_headers(), proxies=cre_proxies())
     et = etree.HTML(resp.text)
     result = et.xpath('//div[@class = "qExpress_pic"]/a/@href')
     url_result = []
@@ -23,7 +39,7 @@ def get_course_url(url):
     return url_result
 
 def get_course_inf(url, f):
-    resp = requests.get(url, headers=cre_headers())
+    resp = requests.get(url, headers=cre_headers(), proxies=cre_proxies())
     obj = re.compile(r'<div class="mainCourse">.*?value="(?P<id>.*?)"/>.*?<div class="mgCard_con fr">.*?title=".*?">(?P<name>.*?)<.*?'
                      r'主讲教师：(?P<teacherwithschool>.*?)</dd>', re.S)
     result = obj.search(resp.text)
@@ -42,14 +58,14 @@ def get_course_inf(url, f):
     result = obj.search(resp.text)
     dic_tem = result.groupdict()
     domain = 'https://xueyinonline.com/course/getevaluate?courseid='+dic['id']+'&enc='+dic_tem['enc']+'&starttime='+dic_tem['starttime']+'+00%3A00%3A00&endtime='+dic_tem['endtime']+'+23%3A59%3A59&size=50'
-    resp_tem = requests.get(domain, headers=cre_headers())
+    resp_tem = requests.get(domain, headers=cre_headers(),proxies=cre_proxies())
     obj = re.compile(r'课程评分：</span><span class="big_num"> (?P<scores>.*?)</span>.*?共(?P<commentsCount>.*?)人评价', re.S)
     result = obj.search(resp_tem.text)
     dic_tem = result.groupdict()
     dic.update(dic_tem)
     #课程评分、评论数
     domain = "https://xueyinonline.com/statistics/api/stattistics-data?courseId="
-    resp = requests.get(domain + dic['id'], headers=cre_headers())
+    resp = requests.get(domain + dic['id'], headers=cre_headers(),proxies=cre_proxies())
     dic.update(json.loads(resp.text))
     dic['url'] = url
     #累计页面浏览量、累计选课人数、累计互动次数
@@ -59,11 +75,11 @@ def get_course_inf(url, f):
 
 def get_course_dir(url, f):
     #{'id':'***', 'dir':'1.1 ***'}
-    resp = requests.get(url, headers=cre_headers())
+    resp = requests.get(url, headers=cre_headers(),proxies=cre_proxies())
     obj = re.compile(r'<div class="mainCourse">.*?value="(?P<id>.*?)"/>', re.S)
     result = obj.search(resp.text)
     dic = result.groupdict()
-    resp = requests.get('https://xueyinonline.com/detail/knowledge-catalog?courseId='+dic['id']+'&orgCourseId='+dic['id'], headers=cre_headers())
+    resp = requests.get('https://xueyinonline.com/detail/knowledge-catalog?courseId='+dic['id']+'&orgCourseId='+dic['id'], headers=cre_headers(), proxies=cre_proxies())
     et = etree.HTML(resp.text)
     course_dir = et.xpath('//a/text()')
     course_dir_unreadable = et.xpath('//span[@class = "unreadable"]/text()')
@@ -82,8 +98,9 @@ def get_course_dir(url, f):
     f.write(json_dir + '\n')
 
 def main():
+    get_ip_pool()
     with ThreadPoolExecutor(10) as task:
-        for i in range(1, 1184):
+        for i in range(252, 1184):
             url = "https://xueyinonline.com/mooc/categorycourselist?categoryid=0&coursetype=0&page="
             url = url + f"{i}"
             url_result = get_course_url(url)
@@ -94,6 +111,5 @@ def main():
                 task.submit(lambda cxp:get_course_inf(*cxp), (course_url, f_inf))
                 task.submit(lambda cxp:get_course_dir(*cxp), (course_url, f_dir))
     print('all finish!!')
-
 if __name__ == '__main__':
     main()
