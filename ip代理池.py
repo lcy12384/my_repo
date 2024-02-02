@@ -2,6 +2,7 @@ import requests
 from fake_useragent import UserAgent
 import json
 from lxml import etree
+import random
 
 def cre_headers():
     ua = UserAgent()
@@ -9,6 +10,21 @@ def cre_headers():
         'User-Agent': ua.random
     }
     return headers
+
+def get_ip_pool():
+    global proxies_pool
+    with open("F:/WorkSpace/ip_kuaidaili.json", "r") as load_f:
+        load_dic = json.load(load_f)
+        data = load_dic['data']
+        proxies_pool = data['proxy_list']
+
+def cre_proxies():
+    proxy = random.choice(proxies_pool)
+    proxies = {
+        "http": "http://%(user)s:%(pwd)s@%(proxy)s/" % {"user": 'd2213256669', "pwd": 'xu04zwnc', "proxy": proxy},
+        "https": "http://%(user)s:%(pwd)s@%(proxy)s/" % {"user": 'd2213256669', "pwd": 'xu04zwnc', "proxy": proxy}
+    }
+    return proxies
 
 def ip_kuaidaili():
     #通过快代理获取付费代理ip
@@ -36,6 +52,7 @@ def ip_zhandaye():
 def main():
     # ip_zhandaye()
     ip_kuaidaili()
+    get_ip_pool()
 
 if __name__ == "__main__":
     main()

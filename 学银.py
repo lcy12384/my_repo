@@ -1,32 +1,9 @@
-import time
-
 import requests
 from lxml import etree
 import re
 import json
-from fake_useragent import UserAgent
+from ip代理池 import cre_headers,cre_proxies
 from concurrent.futures import ThreadPoolExecutor
-import random
-
-def get_ip_pool():
-    global proxies_pool
-    with open("F:/WorkSpace/ip.json", "r") as load_f:
-        load_dic = json.load(load_f)
-        data = load_dic['data']
-        proxies_pool = data['proxy_list']
-def cre_proxies():
-    proxy = random.choice(proxies_pool)
-    proxies = {
-        "http": "http://%(user)s:%(pwd)s@%(proxy)s/" % {"user": 'd3940189470', "pwd": 'xu04zwnc', "proxy": proxy},
-        "https": "http://%(user)s:%(pwd)s@%(proxy)s/" % {"user": 'd3940189470', "pwd": 'xu04zwnc', "proxy": proxy}
-    }
-    return proxies
-def cre_headers():
-    ua = UserAgent()
-    headers = {
-        'User-Agent': ua.random
-    }
-    return headers
 
 def get_course_url(url):
     domain = 'https://xueyinonline.com'
@@ -98,9 +75,8 @@ def get_course_dir(url, f):
     f.write(json_dir + '\n')
 
 def main():
-    get_ip_pool()
     with ThreadPoolExecutor(10) as task:
-        for i in range(252, 1184):
+        for i in range(1, 1184):
             url = "https://xueyinonline.com/mooc/categorycourselist?categoryid=0&coursetype=0&page="
             url = url + f"{i}"
             url_result = get_course_url(url)
